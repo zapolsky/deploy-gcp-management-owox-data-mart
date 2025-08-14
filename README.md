@@ -1,6 +1,9 @@
 # OWOX Data Marts GCP Deployment Guide
 
 Comprehensive deployment and management solution for OWOX Data Marts on Google Cloud Platform.
+<div align="center">
+  <img width="471" height="436" alt="image" src="https://github.com/user-attachments/assets/63ba03a8-9479-4d5a-b05a-dfa75d41a110" />
+</div>
 
 ## Overview
 
