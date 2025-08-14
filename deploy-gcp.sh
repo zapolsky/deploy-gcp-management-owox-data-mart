@@ -43,7 +43,7 @@ print_menu() {
 show_main_menu() {
     clear
     print_header "╔══════════════════════════════════════════════════════════════╗"
-    print_header "║               OWOX Data Marts GCP Manager v0.3.0             ║"
+    print_header "║               OWOX Data Marts GCP Manager v0.3.1             ║"
     print_header "║                                                              ║"
     print_header "║  Complete solution for OWOX deployment and management        ║"
     print_header "╚══════════════════════════════════════════════════════════════╝"
@@ -1207,8 +1207,14 @@ curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" http://localhost:3000 2>/d
 echo "=== OWOX Update Process Completed at $(date) ==="
 UPDATE_SCRIPT_EOF
     
-    # Replace placeholder with actual package
-    sed -i '' "s|UPDATE_PACKAGE_PLACEHOLDER|$UPDATE_PACKAGE|g" update-owox.sh
+    # Replace placeholder with actual package (cross-platform sed)
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS
+        sed -i '' "s|UPDATE_PACKAGE_PLACEHOLDER|$UPDATE_PACKAGE|g" update-owox.sh
+    else
+        # Linux (including Cloud Shell)
+        sed -i "s|UPDATE_PACKAGE_PLACEHOLDER|$UPDATE_PACKAGE|g" update-owox.sh
+    fi
     
     # Upload and execute update script
     print_info "Uploading update script to VM..."
