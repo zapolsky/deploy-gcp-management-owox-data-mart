@@ -87,6 +87,51 @@ check_gcloud() {
         print_error "You are not authenticated with gcloud. Please run 'gcloud auth login'"
         exit 1
     fi
+    
+    # Check and setup SSH keys for Cloud Shell
+    setup_ssh_keys
+}
+
+# Setup SSH keys without passphrase for Cloud Shell
+setup_ssh_keys() {
+    local ssh_key_path="$HOME/.ssh/google_compute_engine"
+    
+    # Check if we're in Cloud Shell environment
+    if [[ -n "$CLOUD_SHELL" ]] || [[ "$HOME" == /home/* ]] && [[ -n "$DEVSHELL_PROJECT_ID" ]]; then
+        print_info "Detected Cloud Shell environment"
+        
+        # Check if SSH key exists and has passphrase
+        if [[ -f "$ssh_key_path" ]]; then
+            # Test if key has passphrase by trying to load it
+            if ! ssh-keygen -y -f "$ssh_key_path" &>/dev/null; then
+                print_warning "SSH key has passphrase which may cause issues in Cloud Shell"
+                read -p "Create new SSH key without passphrase? (Y/n): " CREATE_NEW_KEY
+                
+                if [[ ! "$CREATE_NEW_KEY" =~ ^[Nn]$ ]]; then
+                    print_info "Creating new SSH key without passphrase..."
+                    rm -f "$ssh_key_path" "${ssh_key_path}.pub"
+                    ssh-keygen -t rsa -f "$ssh_key_path" -C "$(whoami)" -N "" -q
+                    print_success "New SSH key created without passphrase"
+                    
+                    # Configure gcloud to use the new key
+                    print_info "Configuring gcloud SSH..."
+                    gcloud compute config-ssh --quiet &>/dev/null || true
+                    print_success "SSH configuration updated"
+                fi
+            fi
+        else
+            # No SSH key exists, create one
+            print_info "Creating SSH key for gcloud compute..."
+            mkdir -p "$(dirname "$ssh_key_path")"
+            ssh-keygen -t rsa -f "$ssh_key_path" -C "$(whoami)" -N "" -q
+            print_success "SSH key created without passphrase"
+            
+            # Configure gcloud to use the new key
+            print_info "Configuring gcloud SSH..."
+            gcloud compute config-ssh --quiet &>/dev/null || true
+            print_success "SSH configuration updated"
+        fi
+    fi
 }
 
 # Interactive project selection by number

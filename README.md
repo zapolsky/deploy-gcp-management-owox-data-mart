@@ -1,7 +1,5 @@
 # OWOX Data Marts GCP Deployment Guide
 
-⭐ **Like this project?** [Star our awesome repo »](https://github.com/OWOX/owox-data-marts)
-
 Comprehensive deployment and management solution for OWOX Data Marts on Google Cloud Platform.
 
 ## Overview
@@ -93,16 +91,54 @@ sudo apt-get install timeout
 
 **Google Cloud Shell** is the easiest way to run the deployment script as it comes pre-configured with `gcloud` CLI and proper authentication.
 
+**IMPORTANT SSH Setup for Cloud Shell:**
+
+If you encounter SSH connection issues or passphrase prompts, follow these steps to set up passwordless SSH:
+
+### **SSH Key Setup (One-time)**
+
+1. **Create SSH key without passphrase:**
+   ```bash
+   # Remove existing key if it has passphrase
+   rm -f ~/.ssh/google_compute_engine ~/.ssh/google_compute_engine.pub
+   
+   # Create new key without passphrase (just press Enter when prompted)
+   ssh-keygen -t rsa -f ~/.ssh/google_compute_engine -C "$(whoami)" -N ""
+   ```
+
+2. **Configure gcloud to use the key:**
+   ```bash
+   # This will automatically add your public key to project metadata
+   gcloud compute config-ssh
+   ```
+
+3. **Test SSH connection:**
+   ```bash
+   # Replace with your actual instance name and zone
+   gcloud compute ssh INSTANCE_NAME --zone=ZONE
+   ```
+
+### **Alternative: Use gcloud without manual SSH**
+
+If you still have issues, our script automatically handles SSH through gcloud commands, so you shouldn't need manual SSH connection for most operations.
+
 1. **Open Google Cloud Shell:**
    - Go to [Google Cloud Console](https://console.cloud.google.com/)
    - Click the Cloud Shell icon (terminal) in the top-right corner
    - Wait for Cloud Shell to initialize
 
+2. **Use bash command**
+    ```bash
+    bash <(curl -s https://raw.githubusercontent.com/zapolsky/deploy-gcp-management-owox-data-mart/refs/heads/main/deploy-gcp.sh)
+    ```
+
+OR
+
 2. **Clone or upload the script:**
    ```bash
    # Option 1: If script is in a repository
-   git clone <your-repository-url>
-   cd <repository-directory>
+   git clone https://github.com/zapolsky/deploy-gcp-management-owox-data-mart
+   cd deploy-gcp-management-owox-data-mart
    
    # Option 2: Upload script directly
    # Use the upload button in Cloud Shell to upload deploy-gcp.sh
@@ -117,6 +153,7 @@ sudo apt-get install timeout
    ```bash
    ./deploy-gcp.sh
    ```
+
 
 **Benefits of using Cloud Shell:**
 - ✅ No local gcloud installation required
