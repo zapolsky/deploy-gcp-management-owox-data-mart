@@ -43,7 +43,7 @@ print_menu() {
 show_main_menu() {
     clear
     print_header "╔══════════════════════════════════════════════════════════════╗"
-    print_header "║               OWOX Data Marts GCP Manager v0.2.0             ║"
+    print_header "║               OWOX Data Marts GCP Manager v0.2.1             ║"
     print_header "║                                                              ║"
     print_header "║  Complete solution for OWOX deployment and management        ║"
     print_header "╚══════════════════════════════════════════════════════════════╝"
