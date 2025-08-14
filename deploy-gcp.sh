@@ -43,7 +43,7 @@ print_menu() {
 show_main_menu() {
     clear
     print_header "╔══════════════════════════════════════════════════════════════╗"
-    print_header "║               OWOX Data Marts GCP Manager v0.2.3             ║"
+    print_header "║               OWOX Data Marts GCP Manager v0.3.0             ║"
     print_header "║                                                              ║"
     print_header "║  Complete solution for OWOX deployment and management        ║"
     print_header "╚══════════════════════════════════════════════════════════════╝"
@@ -830,17 +830,10 @@ sed -i '/auth_basic/d' /etc/nginx/sites-available/owox
 # Create a new nginx config with basic auth using a more reliable method
 cp /etc/nginx/sites-available/owox /tmp/owox.tmp
 
-# Use a more reliable sed approach for Cloud Shell
-echo "DEBUG: Original nginx config:"
-cat /tmp/owox.tmp | head -20
-
 # Insert auth_basic lines after the main location / { line
 sed '/location \/ {/a\
         auth_basic "OWOX Access Required";\
         auth_basic_user_file /etc/nginx/.htpasswd;' /tmp/owox.tmp > /etc/nginx/sites-available/owox
-
-echo "DEBUG: Updated nginx config:"
-cat /etc/nginx/sites-available/owox | head -20
 
 # Clean up temp file
 rm -f /tmp/owox.tmp
@@ -912,21 +905,16 @@ configure_basic_auth() {
         echo -n "Enter username (or press Enter to finish): "
         read USERNAME
         
-        # Debug output
-        echo "DEBUG: Read username: '$USERNAME'"
         
         if [[ -z "$USERNAME" ]]; then
-            echo "DEBUG: Empty username detected"
             if [[ $user_count -eq 0 ]]; then
                 print_error "At least one user is required"
                 continue
             else
-                echo "DEBUG: Finishing user entry with $user_count users"
                 break
             fi
         fi
         
-        echo "DEBUG: Processing username: $USERNAME"
         
         # Validate username (alphanumeric and underscore only)
         if [[ ! "$USERNAME" =~ ^[a-zA-Z0-9_]+$ ]]; then
