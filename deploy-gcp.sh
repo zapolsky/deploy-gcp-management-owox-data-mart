@@ -769,9 +769,123 @@ deploy_public_instance() {
     deploy_new_instance
 }
 
+# Simplified Basic Auth for Cloud Shell
+configure_basic_auth_simple() {
+    print_info "=== Cloud Shell Basic Authentication Setup ==="
+    
+    # Create a default admin user
+    local DEFAULT_USERNAME="admin"
+    local DEFAULT_PASSWORD=$(openssl rand -base64 12)
+    
+    print_info "Creating default admin user for Cloud Shell..."
+    print_success "Username: $DEFAULT_USERNAME"
+    print_success "Password: $DEFAULT_PASSWORD"
+    
+    read -p "Use these credentials? (Y/n): " USE_DEFAULT
+    
+    local USERNAME="$DEFAULT_USERNAME"
+    local PASSWORD="$DEFAULT_PASSWORD"
+    
+    if [[ "$USE_DEFAULT" =~ ^[Nn]$ ]]; then
+        read -p "Enter username: " USERNAME
+        if [[ -z "$USERNAME" ]]; then
+            USERNAME="admin"
+        fi
+        
+        read -p "Generate random password? (Y/n): " RANDOM_PASS
+        if [[ "$RANDOM_PASS" =~ ^[Nn]$ ]]; then
+            read -s -p "Enter password: " PASSWORD
+            echo
+        else
+            PASSWORD=$(openssl rand -base64 12)
+            print_success "Generated password: $PASSWORD"
+        fi
+    fi
+    
+    # Create htpasswd entry
+    local HASH=$(openssl passwd -apr1 "$PASSWORD")
+    local users_config="$USERNAME:$HASH"
+    
+    # Store credentials for display
+    USER_CREDENTIALS="$USERNAME:$PASSWORD"
+    
+    print_info "Creating authentication configuration..."
+    
+    # Create the remote script directly
+    cat > configure-auth-remote.sh << EOF
+#!/bin/bash
+
+# Backup current nginx config
+cp /etc/nginx/sites-available/owox /etc/nginx/sites-available/owox.backup
+
+# Create htpasswd file
+cat > /etc/nginx/.htpasswd << 'HTPASSWD_EOF'
+$users_config
+HTPASSWD_EOF
+
+# Update nginx configuration to include basic auth
+# Remove any existing auth_basic lines first
+sed -i '/auth_basic/d' /etc/nginx/sites-available/owox
+
+# Add auth_basic after the "location /" line but before proxy directives
+sed -i '/location \\\/ {/a\\        auth_basic "OWOX Access Required";\\
+        auth_basic_user_file /etc/nginx/.htpasswd;' /etc/nginx/sites-available/owox
+
+# Test nginx configuration
+if nginx -t; then
+    systemctl reload nginx
+    echo "SUCCESS: Basic authentication configured and nginx reloaded"
+else
+    echo "ERROR: Nginx configuration test failed"
+    # Restore backup
+    cp /etc/nginx/sites-available/owox.backup /etc/nginx/sites-available/owox
+    echo "Restored backup configuration"
+    exit 1
+fi
+EOF
+    
+    # Upload and execute
+    print_info "Uploading configuration to VM..."
+    if ! gcloud compute scp configure-auth-remote.sh "$INSTANCE_NAME":~/configure-auth-remote.sh --zone="$ZONE" --quiet; then
+        print_error "Failed to upload configuration"
+        rm -f configure-auth-remote.sh
+        return 1
+    fi
+    
+    print_info "Configuring authentication on VM..."
+    if gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --quiet \
+       --command="sudo bash ~/configure-auth-remote.sh && rm ~/configure-auth-remote.sh"; then
+        print_success "Basic authentication configured successfully!"
+    else
+        print_error "Failed to configure authentication"
+        rm -f configure-auth-remote.sh
+        return 1
+    fi
+    
+    rm -f configure-auth-remote.sh
+    
+    # Test authentication
+    print_info "Testing authentication..."
+    local auth_test=$(gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --quiet \
+        --command="curl -s -o /dev/null -w '%{http_code}' http://localhost/ 2>/dev/null" 2>/dev/null)
+    
+    if [[ "$auth_test" == "401" ]]; then
+        print_success "✅ Authentication is working correctly"
+    else
+        print_warning "⚠️ Authentication test returned: $auth_test"
+    fi
+}
+
 # Configure Basic Authentication (integrated from configure-owox-auth.sh)
 configure_basic_auth() {
     print_info "=== Configuring Basic Authentication ==="
+    
+    # Check if we're in Cloud Shell and use simplified approach
+    if [[ -n "$CLOUD_SHELL" ]] || [[ "$HOME" == /home/* ]] && [[ -n "$DEVSHELL_PROJECT_ID" ]]; then
+        print_warning "Detected Cloud Shell - using simplified user creation"
+        configure_basic_auth_simple
+        return
+    fi
     
     # Generate htpasswd content on local machine then upload to VM
     print_info "Creating nginx basic authentication users..."
@@ -780,15 +894,25 @@ configure_basic_auth() {
     local user_count=0
     
     while true; do
-        read -p "Enter username (or press Enter to finish): " USERNAME
+        echo
+        echo -n "Enter username (or press Enter to finish): "
+        read USERNAME
+        
+        # Debug output
+        echo "DEBUG: Read username: '$USERNAME'"
+        
         if [[ -z "$USERNAME" ]]; then
+            echo "DEBUG: Empty username detected"
             if [[ $user_count -eq 0 ]]; then
                 print_error "At least one user is required"
                 continue
             else
+                echo "DEBUG: Finishing user entry with $user_count users"
                 break
             fi
         fi
+        
+        echo "DEBUG: Processing username: $USERNAME"
         
         # Validate username (alphanumeric and underscore only)
         if [[ ! "$USERNAME" =~ ^[a-zA-Z0-9_]+$ ]]; then
@@ -844,6 +968,14 @@ configure_basic_auth() {
         else
             USER_CREDENTIALS="$USER_CREDENTIALS,$USERNAME:$PASSWORD"
         fi
+        
+        # Debug: Confirm loop continuation
+        print_info "User added successfully. Total users: $user_count"
+        echo "Continuing to next user prompt..."
+        
+        # Flush output to ensure it's displayed
+        exec 1>&1
+        sleep 0.5
     done
     
     # Validate that we have users configured
