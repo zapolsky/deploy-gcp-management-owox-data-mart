@@ -43,7 +43,7 @@ print_menu() {
 show_main_menu() {
     clear
     print_header "╔══════════════════════════════════════════════════════════════╗"
-    print_header "║               OWOX Data Marts GCP Manager v0.2.2             ║"
+    print_header "║               OWOX Data Marts GCP Manager v0.2.3             ║"
     print_header "║                                                              ║"
     print_header "║  Complete solution for OWOX deployment and management        ║"
     print_header "╚══════════════════════════════════════════════════════════════╝"
@@ -830,19 +830,14 @@ sed -i '/auth_basic/d' /etc/nginx/sites-available/owox
 # Create a new nginx config with basic auth using a more reliable method
 cp /etc/nginx/sites-available/owox /tmp/owox.tmp
 
-# Use awk to insert auth_basic lines after 'location / {'
+# Use a more reliable sed approach for Cloud Shell
 echo "DEBUG: Original nginx config:"
 cat /tmp/owox.tmp | head -20
 
-awk '
-/location \/ \{/ {
-    print $0
-    print "        auth_basic \"OWOX Access Required\";"
-    print "        auth_basic_user_file /etc/nginx/.htpasswd;"
-    next
-}
-{ print }
-' /tmp/owox.tmp > /etc/nginx/sites-available/owox
+# Insert auth_basic lines after the main location / { line
+sed '/location \/ {/a\
+        auth_basic "OWOX Access Required";\
+        auth_basic_user_file /etc/nginx/.htpasswd;' /tmp/owox.tmp > /etc/nginx/sites-available/owox
 
 echo "DEBUG: Updated nginx config:"
 cat /etc/nginx/sites-available/owox | head -20
