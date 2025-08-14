@@ -207,9 +207,9 @@ OR
 
 ### VM Size Options
 
-- **Small (e2-micro)**: 1 vCPU, 1GB RAM - Free tier eligible
+- **Small (e2-micro)**: 1 vCPU, 1GB RAM - Free tier eligible (very slow, not recommended)
 - **Medium (e2-small)**: 1 vCPU, 2GB RAM
-- **Large (e2-medium)**: 1 vCPU, 4GB RAM  
+- **Large (e2-medium)**: 1 vCPU, 4GB RAM  (recommended)
 - **Custom**: Specify machine type
 
 ## Authentication Methods
