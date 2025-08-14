@@ -5,6 +5,8 @@ Comprehensive deployment and management solution for OWOX Data Marts on Google C
   <img width="471" height="436" alt="image" src="https://github.com/user-attachments/assets/63ba03a8-9479-4d5a-b05a-dfa75d41a110" />
 </div>
 
+⭐ **Like this project?** [Star our awesome repo »](https://github.com/OWOX/owox-data-marts)
+
 ## Overview
 
 This guide covers the `deploy-gcp.sh` script that provides a complete unified solution for deploying, managing, and maintaining OWOX Data Marts instances on GCP. It includes VM creation, authentication setup, version management, and cleanup operations.
