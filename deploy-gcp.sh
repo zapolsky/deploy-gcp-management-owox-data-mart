@@ -846,6 +846,14 @@ configure_basic_auth() {
         fi
     done
     
+    # Validate that we have users configured
+    if [[ $user_count -eq 0 ]]; then
+        print_error "No users were configured"
+        return 1
+    fi
+    
+    print_info "Created $user_count user(s) for basic authentication"
+    
     # Create and upload configuration script
     print_info "Configuring basic authentication on VM..."
     
@@ -882,22 +890,48 @@ fi
 AUTH_SCRIPT_EOF
     
     # Replace placeholder with actual users
-    sed -i '' "s|USERS_PLACEHOLDER|$(echo -e "$users_config")|g" configure-auth-remote.sh
+    # Use different approach for sed that works better in Cloud Shell
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS version
+        sed -i '' "s|USERS_PLACEHOLDER|$(echo -e "$users_config")|g" configure-auth-remote.sh
+    else
+        # Linux/Cloud Shell version
+        local temp_file=$(mktemp)
+        awk -v users="$(echo -e "$users_config")" '{gsub(/USERS_PLACEHOLDER/, users); print}' configure-auth-remote.sh > "$temp_file"
+        mv "$temp_file" configure-auth-remote.sh
+    fi
+    
+    # Debug: Show what we're about to upload
+    print_info "Generated authentication script:"
+    echo "--- Script content preview ---"
+    head -n 20 configure-auth-remote.sh
+    echo "--- End preview ---"
     
     # Upload and execute on VM
+    print_info "Uploading authentication configuration to VM..."
     if gcloud compute scp configure-auth-remote.sh "$INSTANCE_NAME":~/configure-auth-remote.sh --zone="$ZONE" --quiet; then
         print_success "Configuration uploaded to VM"
     else
         print_error "Failed to upload configuration to VM"
+        print_error "This might be due to SSH connectivity issues"
+        print_info "Try manually: gcloud compute ssh $INSTANCE_NAME --zone=$ZONE"
         rm -f configure-auth-remote.sh
         return 1
     fi
     
+    print_info "Executing authentication setup on VM..."
+    print_info "This may take a few seconds..."
+    
+    # Execute with more verbose output
     if gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --quiet \
-       --command="sudo bash ~/configure-auth-remote.sh && rm ~/configure-auth-remote.sh"; then
+       --command="set -x; sudo bash ~/configure-auth-remote.sh 2>&1; echo 'Exit code:' \$?; rm -f ~/configure-auth-remote.sh"; then
         print_success "Basic authentication configured successfully!"
     else
         print_error "Failed to configure basic authentication on VM"
+        print_info "Debugging steps:"
+        print_info "1. Check VM status: gcloud compute instances describe $INSTANCE_NAME --zone=$ZONE"
+        print_info "2. Test SSH manually: gcloud compute ssh $INSTANCE_NAME --zone=$ZONE"
+        print_info "3. Check nginx status: sudo systemctl status nginx"
         rm -f configure-auth-remote.sh
         return 1
     fi
@@ -1118,6 +1152,19 @@ configure_basic_auth_standalone() {
     if ! select_vm_for_config; then
         return 1
     fi
+    
+    # Test SSH connectivity before proceeding
+    print_info "Testing SSH connectivity to VM..."
+    if ! gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --quiet \
+         --command="echo 'SSH test successful'" 2>/dev/null; then
+        print_error "Cannot establish SSH connection to VM"
+        print_info "Please ensure:"
+        print_info "1. VM is running and ready"
+        print_info "2. SSH keys are properly configured"
+        print_info "3. Try: gcloud compute ssh $INSTANCE_NAME --zone=$ZONE"
+        return 1
+    fi
+    print_success "SSH connectivity confirmed"
     
     # Use the integrated configure_basic_auth function
     configure_basic_auth
