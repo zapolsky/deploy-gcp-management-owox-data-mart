@@ -394,6 +394,8 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_cache_bypass \$http_upgrade;
+        proxy_set_header Cookie \$http_cookie;
+        proxy_pass_header Set-Cookie;
     }
     
     # All other traffic (auth will be added later if needed)
@@ -407,6 +409,8 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_cache_bypass \$http_upgrade;
+        proxy_set_header Cookie \$http_cookie;
+        proxy_pass_header Set-Cookie;
     }
 }
 NGINX_EOF
